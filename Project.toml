@@ -1,0 +1,11 @@
+name = "StateSpaceGrids"
+uuid = "39e37ee1-5ccb-4cc5-be0a-4fd9eff95447"
+authors = ["hotzsauce <githotz@gmail.com>"]
+version = "0.0.1"
+
+[deps]
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+
+[compat]
+julia = "1.7"
+Interpolations = "0.14"
