@@ -12,9 +12,9 @@ Base.getindex(G::AbstractMesh{T, 1}, I...) where {T}       = throw(BoundsError(G
 Base.getindex(G::AbstractMesh, I::Integer) = (cartesian = Tuple(G.R[I]); G[cartesian])
 Base.getindex(G::AbstractMesh, I::Tuple)   = throw(BoundsError(G, I))
 function Base.getindex(G::AbstractMesh{T, N}, I::NTuple{N, <:Integer}) where {T, N}
-	g = Vector{T}(undef, N)
-	for (i, (d, c)) in enumerate(zip(G.dims, I))
-		g[i] = d[c]
-	end
-	return g
+    g = Vector{T}(undef, N)
+    for (i, (d, c)) in enumerate(zip(G.dims, I))
+        g[i] = d[c]
+    end
+    return g
 end
