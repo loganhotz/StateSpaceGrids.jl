@@ -2,6 +2,24 @@
 
 
 
+# interfaces shared between grid and mesh dimensions
+function Base.getindex(D::AbstractStateSpaceDimension, i::Int)
+    1 <= i <= D.n || throw(BoundsError(D, i))
+    return D.points[i]
+end
+Base.eltype(D::AbstractStateSpaceDimension{T}) where {T} = T
+Base.length(D::AbstractStateSpaceDimension)              = D.n
+Base.iterate(D::AbstractStateSpaceDimension, s=1)        = s > D.n ? nothing : (D[s], s+1)
+
+
+
+"""
+    GridDimension{T}
+
+a monotonically increasing/decreasing vector of points of type `T`. the defining aspect
+of a `GridDimension` is that the difference between consecutive points must be constant
+along its entire length
+"""
 struct GridDimension{T} <: AbstractGridDimension{T}
     a::T
     b::T
@@ -20,28 +38,33 @@ struct GridDimension{T} <: AbstractGridDimension{T}
         return new{eltype(p)}(a, b, n, p)
     end
 end
-function GridDimension(a::Number, b::Number, n::Int)
+
+"""
+    GridDimension(a::Real, b::Real, n::Int)
+
+create a `GridDimension` of `n` uniformly spaced points between `a` and `b`, inclusive
+"""
+function GridDimension(a::Real, b::Real, n::Int)
     return GridDimension(a, b, n, collect(range(a, b, n)))
 end
-GridDimension(a::Number, b::Number) = GridDimension(a, b, 11)
-GridDimension() = GridDimension(0.0, 1.0)
 
-function GridDimension(A::AbstractVector{<:Number})
+"""
+    GridDimension(A::AbstractVector{<:Real})
+
+create a `GridDimension` of the elements of `A`. checks are made as to whether those
+elements are equidistant from their neighbors
+"""
+function GridDimension(A::AbstractVector{<:Real})
     a, b = minimum(A), maximum(A)
     return GridDimension(a, b, length(A), A)
 end
-GridDimension{T}(A::AbstractVector{<:Number}) where T = GridDimension(Vector{T}(A))
+GridDimension{T}(A::AbstractVector{<:Real}) where {T<:Real} = GridDimension(Vector{T}(A))
+# second case above is to allow for, e.g. promotions of A::Vector{Int64} to a dimension
+#   whose desired eltyep is Float64
 
 
 
-function Base.getindex(D::AbstractStateSpaceDimension, i::Int)
-    1 <= i <= D.n || throw(BoundsError(D, i))
-    return D.points[i]
-end
-Base.eltype(D::AbstractStateSpaceDimension{T}) where {T} = T
-Base.length(D::AbstractStateSpaceDimension)              = D.n
-Base.iterate(D::AbstractStateSpaceDimension, s=1)        = s > D.n ? nothing : (D[s], s+1)
-
+# printing to REPL
 function Base.show(io::IO, D::AbstractGridDimension)
     T = typeof(D)
     a, b, n = D.a, D.b, D.n
@@ -74,7 +97,7 @@ Base.convert(::Type{GridDimension}, A::AbstractVector{<:Number}) = GridDimension
     return true
 end
 
-# promotion & conversion of dimensions and meshes
+# promotion & conversion of dimensions
 eltypeof(x) = typeof(x)
 eltypeof(x::AbstractStateSpaceDimension) = eltype(x)
 
