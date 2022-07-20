@@ -2,6 +2,15 @@ module StateSpaceGrids
 
 
 
+using EllipsisNotation
+using Interpolations
+using Reexport
+
+# exposes all the inter- extrapolation structures
+@reexport using Interpolations
+
+
+
 # abstract grids
 export AbstractMesh
 export AbstractGrid
@@ -17,8 +26,10 @@ export AbstractGridDimension
 # concrete dimensions
 export GridDimension
 
-# creating state-space solutions
+# creating state-space solutions, and an `Interpolations.jl` function with methods that
+#   interact with AbstractMesh structs
 export allocate_solution
+export interpolate
 
 
 
@@ -33,6 +44,7 @@ abstract type AbstractGridDimension{T} <: AbstractStateSpaceDimension{T} end
 include("dimensions.jl")
 include("grids.jl")
 include("indices.jl")
+include("interpolations.jl")
 include("solutions.jl")
 
 
