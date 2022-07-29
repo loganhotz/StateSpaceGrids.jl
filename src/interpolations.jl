@@ -23,12 +23,12 @@ function Interpolations.interpolate(
     E::ET
 ) where {IT <: Interpolations.InterpolationType, ET <: Interpolations.BoundaryCondition}
 
-    dims = Tuple(D.points for D in M.dims)
-    n    = size(A, 1)
+    D = Tuple(D.points for D in dims(M))
+    n = size(A, 1)
 
     V = Vector{Any}(nothing, n)
     for dec_var = 1:n
-        itp = interpolate(dims, A[dec_var, ..], I)
+        itp = interpolate(D, A[dec_var, ..], I)
         ext = extrapolate(itp, E)
         V[dec_var] = ext
     end
