@@ -2,91 +2,143 @@
 
 
 
-# interfaces shared between grid and mesh dimensions
-function Base.getindex(D::AbstractStateSpaceDimension, i::Int)
-    1 <= i <= D.n || throw(BoundsError(D, i))
-    return D.points[i]
-end
+# interfaces shared between grid and mesh dimensions. required for AbstractVector subtypes
+Base.size(D::AbstractStateSpaceDimension) = (D.n, )
+Base.@propagate_inbounds Base.getindex(D::AbstractStateSpaceDimension, i::Int) = D.points[i]
+
+# interfaces; not required
 Base.eltype(D::AbstractStateSpaceDimension{T}) where {T} = T
-Base.length(D::AbstractStateSpaceDimension)              = D.n
-Base.iterate(D::AbstractStateSpaceDimension, s=1)        = s > D.n ? nothing : (D[s], s+1)
+Base.IndexStyle(D::AbstractStateSpaceDimension)          = IndexLinear()
+
+Base.similar(D::AbstractStateSpaceDimension) = typeof(D)(D.points)
+
+Base.step(D::AbstractGridDimension) = D.step
+
+
+# printing to REPL
+function Base.show(io::IO, D::AbstractStateSpaceDimension)
+    T       = typeof(D)
+    a, b, n = minimum(D.points), maximum(D.points), D.n
+    print(io, "$T($a, $b, points=$n)")
+end
+function Base.show(io::IO, D::AbstractGridDimension)
+    T = typeof(D)
+    a, b, n, Δ = minimum(D.points), maximum(D.points), D.n, D.step
+    print(io, "$T($a, $b, points=$n, step = $Δ)")
+end
 
 
 
 """
-    GridDimension{T}
+    GridDimension{T<:Real}
 
-a monotonically increasing/decreasing vector of points of type `T`. the defining aspect
-of a `GridDimension` is that the difference between consecutive points must be constant
-along its entire length
+a monotonically increasing vector of points of type `T`. the defining aspect of a
+`GridDimension` is that the difference between consecutive points must be constant along
+ts entire length
 """
 struct GridDimension{T} <: AbstractGridDimension{T}
-    a::T
-    b::T
-    n::Int
-    points::AbstractVector{T}
+    points::Vector{T}
+    n::Int64
+    step::T
 
-    function GridDimension(a, b, n::Int, p::AbstractVector)
-        if b <= a
-            error("lower bound must be below upper bound")
-        end
+    function GridDimension(points::AbstractVector{<:Real})
 
-        uniformΔ = allapprox(diff(p))
-        !uniformΔ && error("GridDimension requires uniform step size")
+        validate_grid_points(points)
 
-        a, b, _ = promote(a, b, first(p))
-        return new{eltype(p)}(a, b, n, p)
+        step = points[2] - points[1]
+        n    = length(points)
+
+        return new{eltype(points)}(points, n, step)
+
     end
 end
 
 """
-    GridDimension(a::Real, b::Real, n::Int)
+    GridDimension(points::AbstractVector{<:Real})
 
-create a `GridDimension` of `n` uniformly spaced points between `a` and `b`, inclusive
-"""
-function GridDimension(a::Real, b::Real, n::Int)
-    return GridDimension(a, b, n, collect(range(a, b, n)))
-end
-
-"""
-    GridDimension(A::AbstractVector{<:Real})
-
-create a `GridDimension` of the elements of `A`. checks are made as to whether those
+create a `GridDimension` of the elements of `points`. checks are made as to whether those
 elements are equidistant from their neighbors
 """
-function GridDimension(A::AbstractVector{<:Real})
-    a, b = minimum(A), maximum(A)
-    return GridDimension(a, b, length(A), A)
-end
 GridDimension{T}(A::AbstractVector{<:Real}) where {T<:Real} = GridDimension(Vector{T}(A))
-# second case above is to allow for, e.g. promotions of A::Vector{Int64} to a dimension
-#   whose desired eltyep is Float64
+# the definition above allows for e.g. promotions of A::Vector{Int64} to a Dimension whose
+#   desired eltype is Float64
+
+"""
+    GridDimension(start::Real, stop::Real, n::Int)
+    GridDimension(start::Real, stop::Real; n::Int, step::Real)
+    GridDimension(start::Real; stop::Real, n::Int, step::Real)
+    GridDimension(; start::Real, stop::Real, n::Int, step::Real)
+
+create a `GridDimension` uniformly spaced points between `a` and `b`, inclusive. the points
+in the Dimension are uniquely determined by any three of `start`, `stop`, `step`, and `n`.
+valid invocations of `GridDimension` are:
+* call `GridDimension` with any three of `start`, `stop`, `step`, or `n`
+* call `GridDimension` with any two of `start`, `stop`, or `n`. in this case, `step` will
+    be assumed
+"""
+GridDimension(A::AbstractRange) = GridDimension(collect(A))
+GridDimension(start; stop=nothing, n::Union{Integer, Nothing}=nothing, step=nothing) =
+    GridDimension(range(start=start, stop=stop, length=n, step=step))
+GridDimension(start, stop; n::Union{Integer, Nothing}=nothing, step=nothing) =
+    GridDimension(range(start=start, stop=stop, length=n, step=step))
+GridDimension(start, stop, n::Integer) =
+    GridDimension(range(start=start, stop=stop, length=n))
+GridDimension(;start=nothing, stop=nothing, n::Union{Integer, Nothing}=nothing, step=nothing) =
+    GridDimension(range(start=start, stop=stop, length=n, step=step))
 
 
 
-# printing to REPL
-function Base.show(io::IO, D::AbstractGridDimension)
-    T = typeof(D)
-    a, b, n = D.a, D.b, D.n
-    print(io, "$T($a, $b, $n)")
+"""
+    MeshDimension{T<:Real}
+
+a monotonically increasing vector of state space points of type `T`. as opposed to the
+[`GridDimension`](@ref), the difference between consecutive elements need not be equal
+"""
+struct MeshDimension{T} <: AbstractMeshDimension{T}
+    points::Vector{T}
+    n::Int64
+
+    function MeshDimension(points::AbstractVector{<:Real})
+
+        validate_mesh_points(points)
+        n = length(points)
+
+        return new{eltype(points)}(points, n)
+    end
 end
+
+"""
+    MeshDimension(points::AbstractVector{<:Real})
+
+create a `MeshDimension` of the elements of `points`. checks are made as to whether those
+elements are strictly increasing
+"""
+MeshDimension{T}(A::AbstractVector{<:Real}) where {T<:Real} = MeshDimension(Vector{T}(A))
+# the definition above allows for e.g. promotions of A::Vector{Int64} to a Dimension whose
+#   desired eltype is Float64
 
 
 
 # conversion rules
-function Base.convert(
-    ::Type{GridDimension{T}},
-    D::GridDimension{S}
-) where {T, S}
-    Q = promote_type(T, S)
-    return GridDimension{Q}(D.points)
+for D = (:GridDimension, :MeshDimension)
+    @eval Base.convert(::Type{$D{T}}, A::AbstractVector{<:Real}) where {T} = $D{T}(A)
+    @eval Base.convert(::Type{$D}, A::AbstractVector{<:Real})              = $D(A)
 end
-Base.convert(::Type{GridDimension}, A::AbstractVector{<:Number}) = GridDimension(A)
 
 
 
-# used when checking grid steps are equal
-@inline function allapprox(x)
+# constructor validations
+function validate_grid_points(x::AbstractVector)
+    uniformΔ = allapprox(diff(x))
+    !uniformΔ && error("subtypes of AbstractGridDimension require a uniform step size")
+
+    a, b = x[1], x[end]
+    (a >= b) && error("state space dimensions must be increasing")
+
+    return true
+end
+
+@inline function allapprox(x::AbstractVector)
     length(x) < 2 && return true
     x1 = x[1]
     i  = 2
@@ -97,14 +149,10 @@ Base.convert(::Type{GridDimension}, A::AbstractVector{<:Number}) = GridDimension
     return true
 end
 
-# promotion & conversion of dimensions
-eltypeof(x) = typeof(x)
-eltypeof(x::AbstractStateSpaceDimension) = eltype(x)
 
-Bottom = Union{}
+function validate_mesh_points(x::AbstractVector)
+    dx = diff(x)
+    any(dx .<= 0) && error("state space dimensions must be increasing")
 
-promote_eltypeof()          = Bottom
-promote_eltypeof(x1, xs...) = promote_type(eltypeof(x1), promote_eltypeof(xs...))
-
-promote_eltype()          = Bottom
-promote_eltype(x1, xs...) = promote_type(eltype(x1), promote_eltype(xs...))
+    return true
+end
