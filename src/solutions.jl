@@ -9,14 +9,14 @@ utility function for initializing an array at which to write the policy rule sol
 # Arguments
 `G::AbstractMesh`: a state space mesh
 `P::Integer`: the number of policy rules in the solution
-`init::Float64`: a scalar for every entry of the array
+`init::Real`: a scalar for every entry of the array
 """
 function allocate_solution(
     G::AbstractMesh{T, N},
     P::Integer,
-    init
+    init::Real
 ) where {T, N}
-    A = Array{Float64, N+1}(undef, P, size(G)...)
+    A = Array{T, N+1}(undef, P, size(G)...)
     fill!(A, init)
     return A
 end
